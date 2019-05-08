@@ -1,10 +1,10 @@
 package com.jakibaki.hid_mitmbridge;
 
+import android.content.SharedPreferences;
 import android.os.PowerManager;
 import android.os.StrictMode;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -20,10 +20,6 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static java.lang.Math.abs;
 
@@ -65,9 +61,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-
-
-    int i = 0;
 
     boolean dpad_is_axis = true;
 
@@ -196,7 +189,6 @@ public class MainActivity extends AppCompatActivity {
     class SenderThread extends Thread {
         public void run() {
 
-
             while(true) {
                 byte[] msg;
                 msg = build_pkg();
@@ -248,8 +240,13 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
+        ipBox = findViewById(R.id.ip_adress_box);
+        final SharedPreferences prefs = getSharedPreferences("data", MODE_PRIVATE);
+        String last_ip = prefs.getString("last_ip", "192.168.178.22");
+        ipBox.setText(last_ip);
+
         try {
-            address = InetAddress.getByName("192.168.178.22");
+            address = InetAddress.getByName(last_ip);
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
@@ -267,32 +264,23 @@ public class MainActivity extends AppCompatActivity {
         wakeLock = powerManager.newWakeLock(field, getLocalClassName());
         wakeLock.acquire();
 
-        ipBox = (EditText) findViewById(R.id.ip_adress_box);
-
-        connectButton = (Button) findViewById(R.id.set_ip_button);
+        connectButton = findViewById(R.id.set_ip_button);
         connectButton.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View v) {
 
                 try {
                     address = InetAddress.getByName(String.valueOf(ipBox.getText()));
-                    Toast toast = Toast.makeText(getApplicationContext(),
-                            "Sending input to " + ipBox.getText() + " now",
-                            Toast.LENGTH_SHORT);
-                    toast.show();
+                    Toast.makeText(getApplicationContext(), "Sending input to " + ipBox.getText() + " now", Toast.LENGTH_SHORT).show();
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putString("last_ip", ipBox.getText().toString());
+                    editor.commit();
 
                 } catch (UnknownHostException e) {
-                    Toast toast = Toast.makeText(getApplicationContext(),
-                            ipBox.getText() + " is not a vaild ip!",
-                            Toast.LENGTH_SHORT);
-                    toast.show();
-
+                    Toast.makeText(getApplicationContext(), " is not a valid ip!", Toast.LENGTH_SHORT).show();
                 }
-
 
             }
         });
     }
 }
-
-

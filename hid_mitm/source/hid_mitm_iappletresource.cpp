@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <math.h>
 #include "ini.h"
 #include "hid_custom.h"
 #include "udp_input.h"
@@ -66,6 +67,7 @@ s64 get_key_ind(std::string str)
 ; Gamepad-rebind config. Currently always rebinds for all players, no individual config.
 ; VALUE is the button that gets registered when KEY is held down
 [player1]
+deadzone=0
 KEY_A=KEY_A
 KEY_B=KEY_B
 KEY_X=KEY_X
@@ -88,12 +90,18 @@ enabled=1
 
 int networking_enabled = 0;
 
+s16 stick_deadzone = 0;
+
 static int handler(void *dummy, const char *section, const char *name,
                    const char *value)
 {
     if (!strcmp(name, "enabled"))
     {
         networking_enabled = atoi(value);
+    }
+    else if (!strcmp(name, "deadzone"))
+    {
+        stick_deadzone = atoi(value);
     }
 
     s64 key = get_key_ind(name);
@@ -111,7 +119,7 @@ void loadConfig()
 {
     mutexLock(&configMutex);
     rebind_config.clear();
-    if (ini_parse("/modules/hid_mitm/config.ini", handler, NULL) < 0)
+    if (ini_parse("/config/hid_mitm/config.ini", handler, NULL) < 0)
     {
         //fatalSimple(MAKERESULT(321, 1)); // 2321-0001 bad config
     }
@@ -155,8 +163,32 @@ void rebind_keys(int gamepad_ind)
                 }
             }
 
-            // lstick rstick digital stuff
-            for (int i = 16; i <= 27; i++)
+            // lstick rstick stuff
+            for (int i = 0; i < JOYSTICK_NUM_STICKS; i++)
+            {
+                if (pow(curTmpEnt->joysticks[i].dx, 2) + pow(curTmpEnt->joysticks[i].dy, 2) <= pow(stick_deadzone, 2))
+                {
+                    curTmpEnt->joysticks[i].dx = 0;
+                    curTmpEnt->joysticks[i].dy = 0;
+
+                    // Stick digital stuff
+                    for (int j = 16; j <= 19; j++)
+                    {
+                        buttons &= ~BIT(j + i * 4); // Unset each bit
+                    }
+                }
+                else
+                {
+                    // Stick digital stuff
+                    for (int j = 16; j <= 19; j++)
+                    {
+                        buttons |= curTmpEnt->buttons & BIT(j + i * 4); // Set each bit if it was originally set
+                    }
+                }
+            }
+
+            // sl sr stuff
+            for (int i = 24; i <= 27; i++)
             {
                 buttons |= curTmpEnt->buttons & BIT(i);
             }
